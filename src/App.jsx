@@ -273,15 +273,18 @@ export default function App() {
       <header className="topbar">
         <h1>Weather Dashboard I</h1>
 
-        <form onSubmit={handleSearch}>
-          <input
-            className="search"
-            type="text"
-            placeholder="Search location..."
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-          />
-        </form>
+        <form className="search-form" onSubmit={handleSearch}>
+  <input
+    className="search"
+    type="text"
+    placeholder="Search city or city, state..."
+    value={searchText}
+    onChange={(e) => setSearchText(e.target.value)}
+  />
+  <button className="search-button" type="submit">
+    Search
+  </button>
+</form>
       </header>
 
       <main className="layout">
