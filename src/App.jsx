@@ -135,6 +135,14 @@ function formatForecastDay(dateString) {
   }).format(date)
 }
 
+function buildNoResultMessage(cityPart, requestedState) {
+  if (requestedState) {
+    return `No match found for ${cityPart}, ${requestedState.abbr}. Try another city or use "City, State".`
+  }
+
+  return `No match found for "${cityPart}". Try a larger city or use "City, State".`
+}
+
 function RecenterMap({ center, zoom }) {
   const map = useMap()
 
@@ -167,6 +175,8 @@ export default function App() {
   const [windSpeed, setWindSpeed] = useState('--')
   const [precipitation, setPrecipitation] = useState('--')
   const [forecastDays, setForecastDays] = useState([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [isWeatherLoading, setIsWeatherLoading] = useState(false)
 
   function resetWeather() {
     setTemperature('--')
@@ -175,82 +185,90 @@ export default function App() {
     setHumidity('--')
     setWindSpeed('--')
     setPrecipitation('--')
+    setForecastDays([])
+  }
+
+    function handleResetHome() {
+    setSearchText('')
+    setSelectedLocation({
+      name: 'Continental U.S.',
+      coords: USA_CENTER,
+    })
+    setMapZoom(DEFAULT_ZOOM)
+    setMessage('Showing the Continental U.S.')
   }
 
   useEffect(() => {
-  async function fetchWeather() {
-    try {
-      const [lat, lon] = selectedLocation.coords
+    async function fetchWeather() {
+      try {
+        const [lat, lon] = selectedLocation.coords
 
-      setWeatherNote(`Loading live weather for ${selectedLocation.name}...`)
+        setIsWeatherLoading(true)
+        setWeatherNote(`Loading weather for ${selectedLocation.name}...`)
 
-      const url =
-        `https://api.open-meteo.com/v1/forecast` +
-        `?latitude=${lat}` +
-        `&longitude=${lon}` +
-        `&current=temperature_2m,weather_code,apparent_temperature,relative_humidity_2m,wind_speed_10m,precipitation` +
-        `&daily=weather_code,temperature_2m_max,temperature_2m_min` +
-        `&temperature_unit=fahrenheit` +
-        `&wind_speed_unit=mph` +
-        `&precipitation_unit=inch` +
-        `&timezone=auto` +
-        `&forecast_days=3`
+        const url =
+          `https://api.open-meteo.com/v1/forecast` +
+          `?latitude=${lat}` +
+          `&longitude=${lon}` +
+          `&current=temperature_2m,weather_code,apparent_temperature,relative_humidity_2m,wind_speed_10m,precipitation` +
+          `&daily=weather_code,temperature_2m_max,temperature_2m_min` +
+          `&temperature_unit=fahrenheit` +
+          `&wind_speed_unit=mph` +
+          `&precipitation_unit=inch` +
+          `&timezone=auto` +
+          `&forecast_days=3`
 
-      const response = await fetch(url)
+        const response = await fetch(url)
 
-      if (!response.ok) {
-        throw new Error('Weather request failed')
+        if (!response.ok) {
+          throw new Error('Weather request failed')
+        }
+
+        const data = await response.json()
+        const current = data.current
+        const daily = data.daily
+
+        if (!current) {
+          throw new Error('No current weather returned')
+        }
+
+        setTemperature(`${Math.round(current.temperature_2m)}°F`)
+        setWeatherEmoji(weatherCodeToEmoji(current.weather_code))
+        setFeelsLike(`${Math.round(current.apparent_temperature)}°F`)
+        setHumidity(`${Math.round(current.relative_humidity_2m)}%`)
+        setWindSpeed(`${Math.round(current.wind_speed_10m)} mph`)
+        setPrecipitation(`${Number(current.precipitation ?? 0).toFixed(2)} in`)
+
+        if (
+          daily?.time?.length &&
+          daily?.weather_code?.length &&
+          daily?.temperature_2m_max?.length &&
+          daily?.temperature_2m_min?.length
+        ) {
+          const nextThreeDays = daily.time.map((date, index) => ({
+            day: formatForecastDay(date),
+            emoji: weatherCodeToEmoji(daily.weather_code[index]),
+            high: Math.round(daily.temperature_2m_max[index]),
+            low: Math.round(daily.temperature_2m_min[index]),
+          }))
+
+          setForecastDays(nextThreeDays)
+        } else {
+          setForecastDays([])
+        }
+
+        setWeatherNote(`Weather loaded for ${selectedLocation.name}.`)
+      } catch (error) {
+        console.error(error)
+        resetWeather()
+        setWeatherNote('Weather data is temporarily unavailable.')
+      } finally {
+        setIsWeatherLoading(false)
       }
-
-      const data = await response.json()
-      const current = data.current
-      const daily = data.daily
-
-      if (!current) {
-        throw new Error('No current weather returned')
-      }
-
-      setTemperature(`${Math.round(current.temperature_2m)}°F`)
-      setWeatherEmoji(weatherCodeToEmoji(current.weather_code))
-      setFeelsLike(`${Math.round(current.apparent_temperature)}°F`)
-      setHumidity(`${Math.round(current.relative_humidity_2m)}%`)
-      setWindSpeed(`${Math.round(current.wind_speed_10m)} mph`)
-      setPrecipitation(`${Number(current.precipitation ?? 0).toFixed(2)} in`)
-
-      if (
-        daily?.time?.length &&
-        daily?.weather_code?.length &&
-        daily?.temperature_2m_max?.length &&
-        daily?.temperature_2m_min?.length
-      ) {
-        const nextThreeDays = daily.time.map((date, index) => ({
-          day: formatForecastDay(date),
-          emoji: weatherCodeToEmoji(daily.weather_code[index]),
-          high: Math.round(daily.temperature_2m_max[index]),
-          low: Math.round(daily.temperature_2m_min[index]),
-        }))
-
-        setForecastDays(nextThreeDays)
-      } else {
-        setForecastDays([])
-      }
-
-      setWeatherNote(`Live weather loaded for ${selectedLocation.name}.`)
-    } catch (error) {
-      console.error(error)
-      setTemperature('--')
-      setWeatherEmoji('❓')
-      setFeelsLike('--')
-      setHumidity('--')
-      setWindSpeed('--')
-      setPrecipitation('--')
-      setForecastDays([])
-      setWeatherNote('Could not load live weather.')
     }
-  }
 
-  fetchWeather()
-}, [selectedLocation])
+    fetchWeather()
+  }, [selectedLocation])
 
   async function handleSearch(e) {
     e.preventDefault()
@@ -258,7 +276,7 @@ export default function App() {
     const query = searchText.trim()
 
     if (query.length < 2) {
-      setMessage('Type at least 2 letters.')
+      setMessage('Type at least 2 letters to search.')
       return
     }
 
@@ -272,7 +290,8 @@ export default function App() {
     const requestedState = getStateInfo(rawStatePart)
 
     try {
-      setMessage(`Searching for "${query}"...`)
+      setIsSearching(true)
+      setMessage(`Searching for ${query}...`)
 
       const url =
         `https://geocoding-api.open-meteo.com/v1/search` +
@@ -308,11 +327,7 @@ export default function App() {
         ) || matches[0]
 
       if (!bestMatch) {
-        setMessage(
-          requestedState
-            ? `No continental U.S. result found for ${cityPart}, ${requestedState.abbr}.`
-            : 'No continental U.S. result found.'
-        )
+        setMessage(buildNoResultMessage(cityPart, requestedState))
         return
       }
 
@@ -324,10 +339,12 @@ export default function App() {
       })
 
       setMapZoom(CITY_ZOOM)
-      setMessage(`Showing weather for ${formattedName}.`)
+      setMessage(`Showing results for ${formattedName}.`)
     } catch (error) {
       console.error(error)
-      setMessage('Location search failed.')
+      setMessage('Search failed. Please try again.')
+    } finally {
+      setIsSearching(false)
     }
   }
 
@@ -344,8 +361,16 @@ export default function App() {
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
           />
-          <button className="search-button" type="submit">
-            Search
+                    <button className="search-button" type="submit" disabled={isSearching}>
+            {isSearching ? 'Searching...' : 'Search'}
+          </button>
+
+          <button
+            className="search-button home-button"
+            type="button"
+            onClick={handleResetHome}
+          >
+            Home
           </button>
         </form>
       </header>
@@ -405,30 +430,31 @@ export default function App() {
           </div>
 
           <div className="widget">
-  <h2>3-Day Forecast</h2>
+            <h2>3-Day Forecast</h2>
 
-  <div className="forecast-list">
-    {forecastDays.length > 0 ? (
-      forecastDays.map((item) => (
-        <div className="forecast-row" key={item.day}>
-          <div className="forecast-day">{item.day}</div>
-          <div className="forecast-emoji">{item.emoji}</div>
-          <div className="forecast-temps">
-            <span>{item.high}°</span>
-            <span className="forecast-low">{item.low}°</span>
+            <div className="forecast-list">
+              {forecastDays.length > 0 ? (
+                forecastDays.map((item) => (
+                  <div className="forecast-row" key={item.day}>
+                    <div className="forecast-day">{item.day}</div>
+                    <div className="forecast-emoji">{item.emoji}</div>
+                    <div className="forecast-temps">
+                      <span>{item.high}°</span>
+                      <span className="forecast-low">{item.low}°</span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p>No forecast available.</p>
+              )}
+            </div>
           </div>
-        </div>
-      ))
-    ) : (
-      <p>No forecast available.</p>
-    )}
-  </div>
-</div>
+
           <div className="widget">
             <h2>Selected Location</h2>
             <p>{selectedLocation.name}</p>
             <p>{message}</p>
-            <p>{weatherNote}</p>
+            <p>{isWeatherLoading ? 'Loading latest weather...' : weatherNote}</p>
           </div>
         </aside>
       </main>
