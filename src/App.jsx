@@ -1,10 +1,21 @@
 import { useEffect, useState } from 'react'
+import L from 'leaflet'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
+import 'leaflet/dist/leaflet.css'
 import './App.css'
 
 const USA_CENTER = [39.5, -98.35]
 const DEFAULT_ZOOM = 4
 const CITY_ZOOM = 10
+
+const smallMarkerIcon = new L.Icon({
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  iconSize: [18, 30],
+  iconAnchor: [9, 30],
+  popupAnchor: [1, -28],
+  shadowSize: [30, 30],
+})
 
 const stateMap = {
   AL: { abbr: 'AL', full: 'Alabama' },
@@ -351,9 +362,14 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <h1>Weather Dashboard I</h1>
+  <div className="title-block">
+    <h1 className="dashboard-title">Weather Dashboard I</h1>
+    <p className="dashboard-subtitle">
+      Live weather, map search, and a short forecast for the continental U.S.
+    </p>
+  </div>
 
-        <form className="search-form" onSubmit={handleSearch}>
+  <form className="search-form" onSubmit={handleSearch}>
           <input
             className="search"
             type="text"
@@ -392,9 +408,9 @@ export default function App() {
 
             <RecenterMap center={selectedLocation.coords} zoom={mapZoom} />
 
-            <Marker position={selectedLocation.coords}>
-              <Popup>{selectedLocation.name}</Popup>
-            </Marker>
+            <Marker position={selectedLocation.coords} icon={smallMarkerIcon}>
+  <Popup>{selectedLocation.name}</Popup>
+</Marker>
           </MapContainer>
         </section>
 
