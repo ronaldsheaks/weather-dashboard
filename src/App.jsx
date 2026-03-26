@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import './App.css'
 
-const usaCenter = [39.5, -98.35]
+const USA_CENTER = [39.5, -98.35]
+const DEFAULT_ZOOM = 4
+const CITY_ZOOM = 10
 
 const stateMap = {
   AL: { abbr: 'AL', full: 'Alabama' },
@@ -129,7 +131,10 @@ function RecenterMap({ center, zoom }) {
   const map = useMap()
 
   useEffect(() => {
-    map.setView(center, zoom)
+    map.flyTo(center, zoom, {
+      animate: true,
+      duration: 1.25,
+    })
   }, [center, zoom, map])
 
   return null
@@ -139,12 +144,12 @@ export default function App() {
   const [searchText, setSearchText] = useState('')
   const [selectedLocation, setSelectedLocation] = useState({
     name: 'Continental U.S.',
-    coords: usaCenter,
+    coords: USA_CENTER,
   })
+  const [mapZoom, setMapZoom] = useState(DEFAULT_ZOOM)
   const [message, setMessage] = useState(
     'Search any city or place in the continental U.S.'
   )
-
   const [temperature, setTemperature] = useState('--')
   const [weatherEmoji, setWeatherEmoji] = useState('🌤️')
   const [weatherNote, setWeatherNote] = useState('Loading live weather...')
@@ -229,8 +234,8 @@ export default function App() {
       const data = await response.json()
       const results = data.results || []
 
-      let matches = results.filter(
-        (place) => isLower48(place.latitude, place.longitude)
+      let matches = results.filter((place) =>
+        isLower48(place.latitude, place.longitude)
       )
 
       if (requestedState) {
@@ -261,6 +266,7 @@ export default function App() {
         coords: [bestMatch.latitude, bestMatch.longitude],
       })
 
+      setMapZoom(CITY_ZOOM)
       setMessage(`Showing weather for ${formattedName}.`)
     } catch (error) {
       console.error(error)
@@ -274,35 +280,35 @@ export default function App() {
         <h1>Weather Dashboard I</h1>
 
         <form className="search-form" onSubmit={handleSearch}>
-  <input
-    className="search"
-    type="text"
-    placeholder="Search city or city, state..."
-    value={searchText}
-    onChange={(e) => setSearchText(e.target.value)}
-  />
-  <button className="search-button" type="submit">
-    Search
-  </button>
-</form>
+          <input
+            className="search"
+            type="text"
+            placeholder="Search city or city, state..."
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+          />
+          <button className="search-button" type="submit">
+            Search
+          </button>
+        </form>
       </header>
 
       <main className="layout">
         <section className="map-panel">
           <MapContainer
-            center={selectedLocation.coords}
-            zoom={4}
-            minZoom={3}
-            maxZoom={10}
+            center={USA_CENTER}
+            zoom={DEFAULT_ZOOM}
+            minZoom={1}
+            maxZoom={18}
             scrollWheelZoom={true}
             className="map"
           >
             <TileLayer
-  attribution='&copy; <a href="https://stadiamaps.com/" target="_blank">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>'
-  url="https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png"
-/>
+              attribution='&copy; <a href="https://stadiamaps.com/" target="_blank" rel="noreferrer">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/" target="_blank" rel="noreferrer">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>'
+              url="https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png"
+            />
 
-            <RecenterMap center={selectedLocation.coords} zoom={6} />
+            <RecenterMap center={selectedLocation.coords} zoom={mapZoom} />
 
             <Marker position={selectedLocation.coords}>
               <Popup>{selectedLocation.name}</Popup>
