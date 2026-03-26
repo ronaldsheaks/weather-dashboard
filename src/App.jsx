@@ -127,6 +127,14 @@ function weatherCodeToEmoji(code) {
   return '🌤️'
 }
 
+function formatForecastDay(dateString) {
+  const date = new Date(`${dateString}T12:00:00`)
+
+  return new Intl.DateTimeFormat('en-US', {
+    weekday: 'short',
+  }).format(date)
+}
+
 function RecenterMap({ center, zoom }) {
   const map = useMap()
 
@@ -150,50 +158,99 @@ export default function App() {
   const [message, setMessage] = useState(
     'Search any city or place in the continental U.S.'
   )
+
   const [temperature, setTemperature] = useState('--')
   const [weatherEmoji, setWeatherEmoji] = useState('🌤️')
   const [weatherNote, setWeatherNote] = useState('Loading live weather...')
+  const [feelsLike, setFeelsLike] = useState('--')
+  const [humidity, setHumidity] = useState('--')
+  const [windSpeed, setWindSpeed] = useState('--')
+  const [precipitation, setPrecipitation] = useState('--')
+  const [forecastDays, setForecastDays] = useState([])
+
+  function resetWeather() {
+    setTemperature('--')
+    setWeatherEmoji('❓')
+    setFeelsLike('--')
+    setHumidity('--')
+    setWindSpeed('--')
+    setPrecipitation('--')
+  }
 
   useEffect(() => {
-    async function fetchWeather() {
-      try {
-        const [lat, lon] = selectedLocation.coords
+  async function fetchWeather() {
+    try {
+      const [lat, lon] = selectedLocation.coords
 
-        setWeatherNote(`Loading live weather for ${selectedLocation.name}...`)
+      setWeatherNote(`Loading live weather for ${selectedLocation.name}...`)
 
-        const url =
-          `https://api.open-meteo.com/v1/forecast` +
-          `?latitude=${lat}` +
-          `&longitude=${lon}` +
-          `&current=temperature_2m,weather_code` +
-          `&temperature_unit=fahrenheit`
+      const url =
+        `https://api.open-meteo.com/v1/forecast` +
+        `?latitude=${lat}` +
+        `&longitude=${lon}` +
+        `&current=temperature_2m,weather_code,apparent_temperature,relative_humidity_2m,wind_speed_10m,precipitation` +
+        `&daily=weather_code,temperature_2m_max,temperature_2m_min` +
+        `&temperature_unit=fahrenheit` +
+        `&wind_speed_unit=mph` +
+        `&precipitation_unit=inch` +
+        `&timezone=auto` +
+        `&forecast_days=3`
 
-        const response = await fetch(url)
+      const response = await fetch(url)
 
-        if (!response.ok) {
-          throw new Error('Weather request failed')
-        }
-
-        const data = await response.json()
-        const current = data.current
-
-        if (!current) {
-          throw new Error('No current weather returned')
-        }
-
-        setTemperature(`${Math.round(current.temperature_2m)}°F`)
-        setWeatherEmoji(weatherCodeToEmoji(current.weather_code))
-        setWeatherNote(`Live weather loaded for ${selectedLocation.name}.`)
-      } catch (error) {
-        console.error(error)
-        setTemperature('--')
-        setWeatherEmoji('❓')
-        setWeatherNote('Could not load live weather.')
+      if (!response.ok) {
+        throw new Error('Weather request failed')
       }
-    }
 
-    fetchWeather()
-  }, [selectedLocation])
+      const data = await response.json()
+      const current = data.current
+      const daily = data.daily
+
+      if (!current) {
+        throw new Error('No current weather returned')
+      }
+
+      setTemperature(`${Math.round(current.temperature_2m)}°F`)
+      setWeatherEmoji(weatherCodeToEmoji(current.weather_code))
+      setFeelsLike(`${Math.round(current.apparent_temperature)}°F`)
+      setHumidity(`${Math.round(current.relative_humidity_2m)}%`)
+      setWindSpeed(`${Math.round(current.wind_speed_10m)} mph`)
+      setPrecipitation(`${Number(current.precipitation ?? 0).toFixed(2)} in`)
+
+      if (
+        daily?.time?.length &&
+        daily?.weather_code?.length &&
+        daily?.temperature_2m_max?.length &&
+        daily?.temperature_2m_min?.length
+      ) {
+        const nextThreeDays = daily.time.map((date, index) => ({
+          day: formatForecastDay(date),
+          emoji: weatherCodeToEmoji(daily.weather_code[index]),
+          high: Math.round(daily.temperature_2m_max[index]),
+          low: Math.round(daily.temperature_2m_min[index]),
+        }))
+
+        setForecastDays(nextThreeDays)
+      } else {
+        setForecastDays([])
+      }
+
+      setWeatherNote(`Live weather loaded for ${selectedLocation.name}.`)
+    } catch (error) {
+      console.error(error)
+      setTemperature('--')
+      setWeatherEmoji('❓')
+      setFeelsLike('--')
+      setHumidity('--')
+      setWindSpeed('--')
+      setPrecipitation('--')
+      setForecastDays([])
+      setWeatherNote('Could not load live weather.')
+    }
+  }
+
+  fetchWeather()
+}, [selectedLocation])
 
   async function handleSearch(e) {
     e.preventDefault()
@@ -327,6 +384,46 @@ export default function App() {
             <p className="big">{weatherEmoji}</p>
           </div>
 
+          <div className="widget">
+            <h2>Feels Like</h2>
+            <p className="big">{feelsLike}</p>
+          </div>
+
+          <div className="widget">
+            <h2>Humidity</h2>
+            <p className="big">{humidity}</p>
+          </div>
+
+          <div className="widget">
+            <h2>Wind</h2>
+            <p className="big">{windSpeed}</p>
+          </div>
+
+          <div className="widget">
+            <h2>Precipitation</h2>
+            <p className="big">{precipitation}</p>
+          </div>
+
+          <div className="widget">
+  <h2>3-Day Forecast</h2>
+
+  <div className="forecast-list">
+    {forecastDays.length > 0 ? (
+      forecastDays.map((item) => (
+        <div className="forecast-row" key={item.day}>
+          <div className="forecast-day">{item.day}</div>
+          <div className="forecast-emoji">{item.emoji}</div>
+          <div className="forecast-temps">
+            <span>{item.high}°</span>
+            <span className="forecast-low">{item.low}°</span>
+          </div>
+        </div>
+      ))
+    ) : (
+      <p>No forecast available.</p>
+    )}
+  </div>
+</div>
           <div className="widget">
             <h2>Selected Location</h2>
             <p>{selectedLocation.name}</p>
