@@ -199,7 +199,7 @@ export default function App() {
     setForecastDays([])
   }
 
-    function handleResetHome() {
+  function handleResetHome() {
     setSearchText('')
     setSelectedLocation({
       name: 'Continental U.S.',
@@ -362,27 +362,32 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
-  <div className="title-block">
-    <h1 className="dashboard-title">Weather Dashboard I</h1>
-    <p className="dashboard-subtitle">
-      Live weather, map search, and a short forecast for the continental U.S.
-    </p>
-  </div>
+        <div className="title-block">
+          <h1 className="dashboard-title">Weather Dashboard I</h1>
+          <p className="dashboard-subtitle">
+            Live weather, map search, and a short forecast for the continental
+            U.S.
+          </p>
+        </div>
 
-  <form className="search-form" onSubmit={handleSearch}>
+        <form className="search-form" onSubmit={handleSearch}>
           <input
             className="search"
             type="text"
             placeholder="Search city or city, state..."
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
+            autoCorrect="off"
+            autoCapitalize="words"
+            spellCheck={false}
           />
-                    <button className="search-button" type="submit" disabled={isSearching}>
+
+          <button className="search-button" type="submit" disabled={isSearching}>
             {isSearching ? 'Searching...' : 'Search'}
           </button>
 
           <button
-            className="search-button home-button"
+            className="home-button"
             type="button"
             onClick={handleResetHome}
           >
@@ -402,15 +407,15 @@ export default function App() {
             className="map"
           >
             <TileLayer
-  attribution='&copy; OpenStreetMap contributors &copy; CARTO'
-  url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-/>
+              attribution="&copy; OpenStreetMap contributors &copy; CARTO"
+              url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+            />
 
             <RecenterMap center={selectedLocation.coords} zoom={mapZoom} />
 
             <Marker position={selectedLocation.coords} icon={smallMarkerIcon}>
-  <Popup>{selectedLocation.name}</Popup>
-</Marker>
+              <Popup>{selectedLocation.name}</Popup>
+            </Marker>
           </MapContainer>
         </section>
 
